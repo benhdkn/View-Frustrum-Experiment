@@ -1,0 +1,183 @@
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>view-frustrum</title>
+
+        <style type="text/css">
+            html, body { 
+                margin: 0 auto; 
+                padding: 0; border: none; 
+            }
+
+            #threejs {
+                position: fixed;
+                width: 100%;
+                height: 100%;
+                z-index: 0;
+            }
+
+            #overlay-container {
+                position: fixed;
+                visibility: hidden;
+                width: 100%;
+                height: 100%;
+                z-index: 5;
+            }
+
+            #instructions {
+                visibility: visible;
+                margin: 20px;
+                text-align: center;
+                font-family: consolas;
+                font-size: 10px;
+                color: white;
+            }
+
+            b {
+                color: red;
+            }
+        </style>
+
+    </head>
+    <body>
+        <script src="js/libs/threejs/three_r88.js"></script>
+
+        <div id="threejs"></div>
+        <div id="overlay-container">
+            <div id="instructions">
+                Press <b>+</b>/<b>-</b> to move the camera along Z.<br />
+                Press <b>R</b> to reset the camera Z position.<br />
+                <br />
+                Press <b>1</b> to activate the 'Y view frustum adjustement'.<br />
+                Press <b>2</b> to deactivate.
+            </div>
+        </div>
+
+        <script>
+            var container, camera, scene, renderer, clock;
+
+            var material;
+            var cubeGeometry, cubeMesh;
+            var sphereGeometry, sphereMesh;
+
+            var _isViewFrustrumPositioning = false;
+            var isViewFrustrumPositioning = false;
+
+            var camZStartPos = 10;
+
+            init();
+            animate();
+
+            function init() {
+                container = document.getElementById('threejs');
+
+                camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 1000);
+                camera.position.z = camZStartPos;
+
+                scene = new THREE.Scene();
+                clock = new THREE.Clock();
+                
+                var gridHelper = new THREE.GridHelper(20, 10);
+                gridHelper.position.y -= 4;
+                scene.add(gridHelper);
+
+                material = new THREE.MeshNormalMaterial( { wireframe: true });
+
+                cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+                cubeMesh = new THREE.Mesh(cubeGeometry, material);
+                cubeMesh.position.x += 2;
+                cubeMesh.position.y += 2;
+                cubeMesh.position.z -= 3;
+                scene.add(cubeMesh);
+
+                sphereGeometry = new THREE.SphereGeometry(1, 8, 8);
+                sphereMesh = new THREE.Mesh(sphereGeometry, material);
+                sphereMesh.position.x -= 2;
+                sphereMesh.position.y -= 2;
+                sphereMesh.position.z -= 5;
+                scene.add(sphereMesh);
+
+                var backgroundGeometry = new THREE.BoxGeometry(12, 8, 4);
+                var backgroundMesh = new THREE.Mesh(backgroundGeometry, material);
+                backgroundMesh.position.z -= 2;
+                scene.add(backgroundMesh);
+
+                renderer = new THREE.WebGLRenderer( { antialias: true } );
+                renderer.setPixelRatio(0.5);
+                renderer.setSize(container.offsetWidth, container.offsetHeight);
+                container.appendChild( renderer.domElement );
+
+                window.addEventListener('resize', onWindowResize, false);
+                window.addEventListener('keydown', onKeyDown, false);
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                cubeMesh.rotation.x += 0.01;
+                cubeMesh.rotation.y += 0.02;
+                sphereMesh.rotation.x -= 0.01;
+                sphereMesh.rotation.y -= 0.02;
+
+                // Replace that with scrolling
+                var sinY = 4 * Math.sin(clock.getElapsedTime());
+                camera.position.y = sinY;
+
+                if (isViewFrustrumPositioning) {
+                    // Set offset based on camera Y position
+                    // Empirical observations show that for a z camera value of 10, the factor is 55.75, for 20, 27.875, etc.
+                    // The function to calculate the factor is
+                    var linearRegressionFactor0 = -4.00617226e-18;
+                    var linearRegressionFactor1 = 1.79372197e-03;
+                    var camZFactor = 1 / (linearRegressionFactor1 * camera.position.z + linearRegressionFactor0);
+                    // Will only work if the Y position is between 4 and -4...
+                    camera.setViewOffset(window.innerWidth, window.innerHeight, 0, camera.position.y * camZFactor, window.innerWidth, window.innerHeight);
+                }
+
+                if (_isViewFrustrumPositioning != isViewFrustrumPositioning) {
+                    if (!isViewFrustrumPositioning) {
+                        camera.clearViewOffset();
+                    }
+                    _isViewFrustrumPositioning = isViewFrustrumPositioning;
+                }
+
+                renderer.render(scene, camera);
+            }
+
+            function onWindowResize(){
+                camera.aspect = container.offsetWidth / container.offsetHeight;
+                camera.updateProjectionMatrix();
+
+                renderer.setSize(container.offsetWidth, container.offsetHeight);
+            }
+
+           function onKeyDown() {
+                switch (event.keyCode) {
+                    case 49: // 1 OSX
+                    case 97: // numpad 1
+                    case 49: // 1
+                        isViewFrustrumPositioning = true;
+                        break;
+                    case 50: // 2 OSX
+                    case 98: // numpad 2
+                    case 50: // 2
+                        isViewFrustrumPositioning = false;
+                        break;
+                    case 187: // + OSX
+                    case 107: // numpad +
+                        camera.position.z -= 2;
+                        break;
+                    case 189: // - OSX
+                    case 109: // numpad -
+                        camera.position.z += 2;
+                        break;
+                    case 82: // R
+                        camera.position.z = camZStartPos;
+                }
+            }
+        </script>
+    </body>
+</html>
